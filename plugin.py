@@ -80,16 +80,19 @@ class Bluray(callbacks.Plugin):
                 'userid': '-1',
                 'country': 'US',
                 'keyword': movie}
-        movie = get(url, True, data)
-    
-        if movie:
-            p = re.compile(ur'\#ccc">(.*)</(?:.*)&nbsp;(.*)')
-            data = re.search(p, movie.content)
+        resp = get(url, True, data)
+
+        if resp.content.strip():
+            soup = BeautifulSoup(resp.content)
+            moviename = soup.find('li').contents[2].strip()
+            date = soup.find('li').find('span').text
+            
             irc.reply(format('%s: %s',
-                ircutils.bold(data.group(2)),
-                data.group(1)))
+                ircutils.bold(moviename),
+                date))
         else:
-            irc.reply('The chicken has stolen the coconut :-(')
+            irc.reply(format('%s: can\'t find the coconut',
+                ircutils.bold(movie)))
 
     bd = wrap(bd, ['text'])
 
@@ -145,13 +148,15 @@ class Bluray(callbacks.Plugin):
                             ircutils.mircColor(dates[0].text, 'green')))
 
             # older movies don't have a release date in the database
+            # maybe use the other source for this?
             else:
                 irc.reply(format('%s: shit\'s too old',
                     ircutils.bold(moviename.strip())))
 
         # something crapped it's pants, we have no response?
         else:
-            irc.reply('The coconut has resisted our attempts!')
+            irc.reply(format('%s: the coconut has resisted our attempts!', 
+                ircutils.bold(movie)))
         
     br = wrap(br, ['text'])
 
