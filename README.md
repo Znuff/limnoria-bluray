@@ -25,5 +25,5 @@ Currently has 2 commands (2 different sources): `br` and `bd`.
 
 ```
 <znf> >bd the lord of the rings
-<Bot> The Lord of the Rings: The Motion Pictur&hellip; (2001-2003): May 01, 2012
+<Bot> The Lord of the Rings: The Motion Pictur… (2001-2003): May 01, 2012
 ```
