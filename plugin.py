@@ -90,7 +90,7 @@ class Bluray(callbacks.Plugin):
         """-- usage: bd <movie>
 
         """
-
+        
         movie = fetch(movie)
     
         if movie:
@@ -141,6 +141,7 @@ class Bluray(callbacks.Plugin):
             dates = soup.find('h2')
             moviename = soup.find('h1').find('span').text
             if dates:
+                #get all dates
                 dates = dates.findAll('span')
                 if len(dates) > 1:
                     irc.reply(format('%s: %s (Blu-ray), %s (digital)',
@@ -151,10 +152,13 @@ class Bluray(callbacks.Plugin):
                     irc.reply(format('%s: %s',
                             ircutils.bold(moviename.strip()),
                             ircutils.mircColor(dates[0].text, 'green')))
+
+            # older movies don't have a release date in the database
             else:
                 irc.reply(format('%s: shit\'s too old',
                     ircutils.bold(moviename.strip())))
 
+        # something crapped it's pants, we have no response?
         else:
             irc.reply('The coconut has resisted our attempts!')
         
