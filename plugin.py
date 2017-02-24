@@ -34,7 +34,6 @@ import supybot.plugins as plugins
 import supybot.ircutils as ircutils
 import supybot.callbacks as callbacks
 import re
-from urllib2 import urlopen, URLError, quote
 import requests
 from bs4 import BeautifulSoup
 
@@ -46,31 +45,16 @@ except ImportError:
     # without the i18n module
     _ = lambda x: x
 
-def fetch(movie=False):
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2729.3 Safari/537.36'}
-
-    if movie:
-        #data = {'section':'bluraymovies','userid':'-1','country':'US','keyword': quote(movie)}
-        data = 'section=bluraymovies&userid=-1&country=US&keyword=' + quote(movie)
-        url = 'http://www.blu-ray.com/search/quicksearch.php'
-
-    try:
-        resp = utils.web.getUrl(url, headers=headers, data=data)
-    except utils.web.Error, e:
-        resp = False
-    return resp
-
 def get(url=False, post=False, data=False):
     headers = {
             'Pragma': 'no-cache',
             'Accept-Language': 'en-US,en;q=0.8,ro;q=0.6',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.13 Safari/537.36',
             'Accept': '*/*',
-            'Referer': 'http://www.dvdsreleasedates.com/',
+            'Referer': url,
             'Cache-Control': 'no-cache',
+            'X-Requested-With': 'XMLHttpRequest',
             }
-    if url:
-        url = 'http://www.dvdsreleasedates.com' + url
 
     try:
         if post:
@@ -90,12 +74,17 @@ class Bluray(callbacks.Plugin):
         """-- usage: bd <movie>
 
         """
-        
-        movie = fetch(movie)
+        base = 'http://www.blu-ray.com' 
+        url = base + '/search/quicksearch.php'
+        data = {'section': 'bluraymovies',
+                'userid': '-1',
+                'country': 'US',
+                'keyword': movie}
+        movie = get(url, True, data)
     
         if movie:
             p = re.compile(ur'\#ccc">(.*)</(?:.*)&nbsp;(.*)')
-            data = re.search(p, movie)
+            data = re.search(p, movie.content)
             irc.reply(format('%s: %s',
                 ircutils.bold(data.group(2)),
                 data.group(1)))
@@ -108,9 +97,10 @@ class Bluray(callbacks.Plugin):
         """-- usage: br <movie>
 
         """
-
+        
+        base = 'http://www.dvdsreleasedates.com'
         # livesearch first
-        url = '/livesearch.php?q=' + movie
+        url = base + '/livesearch.php?q=' + movie
 
         response = get(url)
 
@@ -120,12 +110,12 @@ class Bluray(callbacks.Plugin):
             
             # follow the first link, if it exists
             if url:
-                url = url['href']
+                url = base + url['href']
                 response = get(url)
 
             # if not, let's try the non-live search form
             else:
-                url = '/search.php'
+                url = base + '/search.php'
                 data = {'searchStr' : movie}
                 response = get(url, True, data)
                 # results page
@@ -133,6 +123,7 @@ class Bluray(callbacks.Plugin):
                     soup = BeautifulSoup(response.content)
                     url = soup.find('td', {'class' :
                         'dvdcell'}).find('a')['href']
+                    url = base + url
                     # find the first link
                     response = get(url)
 
