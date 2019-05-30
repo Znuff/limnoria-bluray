@@ -138,9 +138,10 @@ class Bluray(callbacks.Plugin):
                 #get all dates
                 dates = dates.findAll('span')
                 if len(dates) > 1:
-                    irc.reply(format('%s: %s (Blu-ray), %s (digital)',
+                    irc.reply(format('%s: %s (%s), %s (digital)',
                             ircutils.bold(moviename.strip()),
                             ircutils.mircColor(dates[0].text, 'green'),
+                            ircutils.mircColor('Blu-ray', 'blue'),
                             ircutils.mircColor(dates[1].text, 'red')))
                 else:
                     irc.reply(format('%s: %s',
