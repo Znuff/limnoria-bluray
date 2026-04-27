@@ -148,7 +148,7 @@ class Bluray(callbacks.Plugin):
                 soup = BeautifulSoup(response.content, 'html.parser')
                 dvdcell = soup.find('td', {'class': 'dvdcell'})
                 if not dvdcell:
-                    irc.reply(_err(movie, 'the coconut has resisted our attempts!'))
+                    irc.reply(_err(movie, "can't find the coconut"))
                     return
                 url = base + dvdcell.find('a')['href']
                 response = get(url)
