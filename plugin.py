@@ -66,9 +66,6 @@ def get(url, post=False, data=None):
 
     return resp
 
-def parse(resp):
-    return BeautifulSoup(resp.content, 'html5lib')
-
 def _err(movie, msg):
     return format('%s: %s', ircutils.bold(movie), msg)
 
@@ -99,7 +96,7 @@ class Bluray(callbacks.Plugin):
             irc.reply(_err(movie, "can't find the coconut (%s)" % err))
             return
 
-        soup = parse(resp)
+        soup = BeautifulSoup(resp.content, 'html5lib')
         li = soup.find('li')
         if not li:
             irc.reply(_err(movie, "can't find the coconut"))
@@ -134,7 +131,7 @@ class Bluray(callbacks.Plugin):
             irc.reply(_err(movie, 'the coconut has resisted our attempts! (%s)' % err))
             return
 
-        soup = parse(resp)
+        soup = BeautifulSoup(resp.content, 'html5lib')
         link = soup.find('a')
 
         # follow the first link, if it exists
@@ -148,7 +145,7 @@ class Bluray(callbacks.Plugin):
             resp = get(url, post=True, data={'searchStr': movie})
             # results page
             if resp and resp.ok:
-                soup = parse(resp)
+                soup = BeautifulSoup(resp.content, 'html5lib')
                 dvdcell = soup.find('td', {'class': 'dvdcell'})
                 if not dvdcell:
                     irc.reply(_err(movie, "can't find the coconut"))
@@ -161,7 +158,7 @@ class Bluray(callbacks.Plugin):
             irc.reply(_err(movie, 'the coconut has resisted our attempts! (%s)' % err))
             return
 
-        soup = parse(resp)
+        soup = BeautifulSoup(resp.content, 'html5lib')
         h1 = soup.find('h1')
         moviename = h1.find('span', {'itemprop': 'name'}).text.strip()
         year = h1.find('a')
