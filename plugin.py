@@ -28,9 +28,7 @@
 
 ###
 
-import supybot.utils as utils
 from supybot.commands import *
-import supybot.plugins as plugins
 import supybot.ircutils as ircutils
 import supybot.callbacks as callbacks
 
@@ -68,6 +66,16 @@ def get(url, post=False, data=None):
 
     return resp
 
+def _err(movie, msg):
+    return format('%s: %s', ircutils.bold(movie), msg)
+
+def _check_response(resp):
+    if resp is None:
+        return 'network error'
+    if not resp.ok:
+        return 'HTTP %s' % resp.status_code
+    return None
+
 class Bluray(callbacks.Plugin):
     """Blu-Ray release dates"""
     threaded = True
@@ -76,48 +84,35 @@ class Bluray(callbacks.Plugin):
         """-- usage: bd <movie>
 
         """
-        base = 'https://www.blu-ray.com'
-        url = base + '/search/quicksearch.php'
+        url = 'https://www.blu-ray.com/search/quicksearch.php'
         data = {'section': 'bluraymovies',
                 'userid': '-1',
                 'country': 'US',
                 'keyword': movie}
-        resp = get(url, True, data)
+        resp = get(url, post=True, data=data)
 
-        if resp is None:
-            irc.reply(format('%s: can\'t find the coconut (network error)',
-                ircutils.bold(movie)))
+        err = _check_response(resp)
+        if err:
+            irc.reply(_err(movie, "can't find the coconut (%s)" % err))
             return
 
-        if not resp.ok:
-            irc.reply(format('%s: can\'t find the coconut (HTTP %s)',
-                ircutils.bold(movie), resp.status_code))
+        soup = BeautifulSoup(resp.content, 'html.parser')
+        li = soup.find('li')
+        if not li:
+            irc.reply(_err(movie, "can't find the coconut"))
             return
 
-        if resp.content.strip():
-            soup = BeautifulSoup(resp.content, 'html.parser')
-            li = soup.find('li')
-            if not li:
-                irc.reply(format('%s: can\'t find the coconut',
-                    ircutils.bold(movie)))
-                return
-            moviename = li.contents[2].replace('\xa0', '').strip()
-            date = li.find('span').text
-            if date == '-':
-                date = 'not announced'
+        moviename = li.contents[2].replace('\xa0', '').strip()
+        date = li.find('span').text
+        if date == '-':
+            date = 'not announced'
 
-            movie_url = ''
-            url_match = re.search(r"var urls = new Array\('([^']+)'", resp.text)
-            if url_match:
-                movie_url = ' \u2022 ' + url_match.group(1)
+        movie_url = ''
+        url_match = re.search(r"var urls = new Array\('([^']+)'", resp.text)
+        if url_match:
+            movie_url = ' \u2022 ' + url_match.group(1)
 
-            irc.reply(format('%s: %s%s',
-                ircutils.bold(moviename),
-                date,
-                movie_url))
-        else:
-            irc.reply(format('%s: can\'t find the coconut',
-                ircutils.bold(movie)))
+        irc.reply(format('%s: %s%s', ircutils.bold(moviename), date, movie_url))
 
     bd = wrap(bd, ['text'])
 
@@ -125,21 +120,15 @@ class Bluray(callbacks.Plugin):
         """-- usage: br <movie>
 
         """
-
         base = 'https://www.dvdsreleasedates.com'
         # livesearch first
         url = base + '/livesearch.php?' + urllib.parse.urlencode({'q': movie})
 
         response = get(url)
 
-        if response is None:
-            irc.reply(format('%s: the coconut has resisted our attempts! (network error)',
-                ircutils.bold(movie)))
-            return
-
-        if not response.ok:
-            irc.reply(format('%s: the coconut has resisted our attempts! (HTTP %s)',
-                ircutils.bold(movie), response.status_code))
+        err = _check_response(response)
+        if err:
+            irc.reply(_err(movie, 'the coconut has resisted our attempts! (%s)' % err))
             return
 
         soup = BeautifulSoup(response.content, 'html.parser')
@@ -153,59 +142,50 @@ class Bluray(callbacks.Plugin):
         # if not, let's try the non-live search form
         else:
             url = base + '/search.php'
-            data = {'searchStr': movie}
-            response = get(url, True, data)
+            response = get(url, post=True, data={'searchStr': movie})
             # results page
             if response and response.ok:
                 soup = BeautifulSoup(response.content, 'html.parser')
                 dvdcell = soup.find('td', {'class': 'dvdcell'})
                 if not dvdcell:
-                    irc.reply(format('%s: the coconut has resisted our attempts!',
-                        ircutils.bold(movie)))
+                    irc.reply(_err(movie, 'the coconut has resisted our attempts!'))
                     return
                 url = base + dvdcell.find('a')['href']
-                # find the first link
                 response = get(url)
 
-        if response is None:
-            irc.reply(format('%s: the coconut has resisted our attempts! (network error)',
-                ircutils.bold(movie)))
-            return
-
-        if not response.ok:
-            irc.reply(format('%s: the coconut has resisted our attempts! (HTTP %s)',
-                ircutils.bold(movie), response.status_code))
+        err = _check_response(response)
+        if err:
+            irc.reply(_err(movie, 'the coconut has resisted our attempts! (%s)' % err))
             return
 
         soup = BeautifulSoup(response.content, 'html.parser')
-        dates = soup.find('h2')
         h1 = soup.find('h1')
-        moviename = h1.find('span', {'itemprop': 'name'}).text
+        moviename = h1.find('span', {'itemprop': 'name'}).text.strip()
         year = h1.find('a')
         if year:
             moviename = '%s (%s)' % (moviename, year.text)
+
+        dates = soup.find('h2')
         if dates:
             # get all dates
             dates = dates.find_all('span')
             if len(dates) > 1:
                 irc.reply(format('%s: %s (%s), %s (digital) \u2022 %s',
-                        ircutils.bold(moviename.strip()),
+                        ircutils.bold(moviename),
                         ircutils.mircColor(dates[0].text, 'green'),
                         ircutils.mircColor('Blu-ray', 'blue'),
                         ircutils.mircColor(dates[1].text, 'red'),
                         url))
             else:
                 irc.reply(format('%s: %s \u2022 %s',
-                        ircutils.bold(moviename.strip()),
+                        ircutils.bold(moviename),
                         ircutils.mircColor(dates[0].text, 'green'),
                         url))
 
         # older movies don't have a release date in the database
         # maybe use the other source for this?
         else:
-            irc.reply(format('%s: shit\'s too old \u2022 %s',
-                ircutils.bold(moviename.strip()),
-                url))
+            irc.reply(_err(movie, "shit's too old \u2022 %s" % url))
 
     br = wrap(br, ['text'])
 
