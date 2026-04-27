@@ -66,6 +66,9 @@ def get(url, post=False, data=None):
 
     return resp
 
+def parse(resp):
+    return BeautifulSoup(resp.content, 'html5lib')
+
 def _err(movie, msg):
     return format('%s: %s', ircutils.bold(movie), msg)
 
@@ -96,7 +99,7 @@ class Bluray(callbacks.Plugin):
             irc.reply(_err(movie, "can't find the coconut (%s)" % err))
             return
 
-        soup = BeautifulSoup(resp.content, 'html.parser')
+        soup = parse(resp)
         li = soup.find('li')
         if not li:
             irc.reply(_err(movie, "can't find the coconut"))
@@ -124,41 +127,41 @@ class Bluray(callbacks.Plugin):
         # livesearch first
         url = base + '/livesearch.php?' + urllib.parse.urlencode({'q': movie})
 
-        response = get(url)
+        resp = get(url)
 
-        err = _check_response(response)
+        err = _check_response(resp)
         if err:
             irc.reply(_err(movie, 'the coconut has resisted our attempts! (%s)' % err))
             return
 
-        soup = BeautifulSoup(response.content, 'html.parser')
+        soup = parse(resp)
         link = soup.find('a')
 
         # follow the first link, if it exists
         if link:
             url = base + link['href']
-            response = get(url)
+            resp = get(url)
 
         # if not, let's try the non-live search form
         else:
             url = base + '/search.php'
-            response = get(url, post=True, data={'searchStr': movie})
+            resp = get(url, post=True, data={'searchStr': movie})
             # results page
-            if response and response.ok:
-                soup = BeautifulSoup(response.content, 'html.parser')
+            if resp and resp.ok:
+                soup = parse(resp)
                 dvdcell = soup.find('td', {'class': 'dvdcell'})
                 if not dvdcell:
                     irc.reply(_err(movie, "can't find the coconut"))
                     return
                 url = base + dvdcell.find('a')['href']
-                response = get(url)
+                resp = get(url)
 
-        err = _check_response(response)
+        err = _check_response(resp)
         if err:
             irc.reply(_err(movie, 'the coconut has resisted our attempts! (%s)' % err))
             return
 
-        soup = BeautifulSoup(response.content, 'html.parser')
+        soup = parse(resp)
         h1 = soup.find('h1')
         moviename = h1.find('span', {'itemprop': 'name'}).text.strip()
         year = h1.find('a')
